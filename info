@@ -1,1 +1,21 @@
 https://web.convegenius.ai/bots?botId=0270038149322028
+{
+  "user": {
+    "name": "John Doe",
+    "phone": "+1234567890",
+    "questionsAndAnswers": [
+      {
+        "question": "What is your favorite color?",
+        "answer": "Blue"
+      },
+      {
+        "question": "What is your hobby?",
+        "answer": "Reading"
+      },
+      {
+        "question": "Where do you live?",
+        "answer": "New York"
+      }
+    ]
+  }
+}
