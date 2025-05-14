@@ -1,5 +1,9 @@
 from flask import Flask, request, jsonify
 import requests, json
+from openai import AzureOpenAI
+from dotenv import load_dotenv
+import os
+from googleapiclient.discovery import build
 app = Flask(__name__)
 api_url = "https://v1-api.swiftchat.ai/api"
 bot_uri = "/bots/0270038149322028/messages"
@@ -28,14 +32,26 @@ def query():
         # send_message(to,"Hello "+str(to),type="button")
         sendwelcomemessage(to)
         handle_country_selection(req_data)
-        add_question_answer(req_data["conversation_id"], req_data["text"]["body"],req_data["message_id"],req_data["timestamp"])
+        add_question_answer(req_data["conversation_id"], "sads",req_data["message_id"],req_data["timestamp"])
     elif len(user["user"]["questionsAndAnswers"])==1:
-        update_json("country",req_data["text"]["body"])
+        # update_json("country",req_data["text"]["body"],req_data["conversation_id"])
         handle_state_selection(req_data,req_data["button_response"]["body"])
-        
+        add_question_answer(req_data["conversation_id"], "Country",req_data["message_id"],req_data["timestamp"])
+    elif len(user["user"]["questionsAndAnswers"])==2:
+        handle_city_selection(req_data,"IN")
+        add_question_answer(req_data["conversation_id"], "State",req_data["message_id"],req_data["timestamp"])
+    elif len(user["user"]["questionsAndAnswers"])==3:
+        json_response = json.loads(city_info())
+        print(type(json_response))
+        print(json_response["description"])
+        send_message(to,json_response["description"],"text")
+        send_message(to,get_video_object(),"text")
+    else:
+        json_response = json.loads(city_info())
+        send_message(to,json_response["description"],"text")
     return jsonify({"success":True})
 
-def update_json(key,value):
+def update_json(key,value,conversation_id):
     data = read_json()
     for item in data:
         if item.get("user", {}).get("conversation_id") == conversation_id:
@@ -70,7 +86,7 @@ def add_question_answer( conversation_id, question,message_id,timestamp):
 
 def send_message(to,message,type):
     headers = get_header()
-    print(message)
+    # print(message)
     if isinstance(message,str):
         json = get_response_json(to=to,message=message,type=type)
     else:
@@ -114,6 +130,13 @@ def get_image_object(imageurl="https://media.istockphoto.com/id/519611160/vector
     return {
         "type": 'image',
         "image": { "url": imageurl }
+      }
+
+def get_video_object(videourl="https://www.youtube.com/watch?v=4o1XD6-kZQs"):
+    return "You can find more about this city here on Youtube URL: " + videourl
+    return {
+        "type": 'video',
+        "video": { "url": videourl }
       }
 
 def get_button_object(question,buttonarray,type):
@@ -182,7 +205,7 @@ def get_state_list(country_code):
     data = response.json()
     return data["data"]
 
-def get_cities_list(country_code,state_code):
+def get_cities_list(country_code="IN",state_code="MH"):
     response = requests.get(f"{api_url}/regions/cities?country_code={country_code}&state_code={state_code}",verify=VERIFY,headers=get_header())
     data = response.json()
     return data["data"]
@@ -193,17 +216,20 @@ def send_country_selection(data):
     return country
 
 def send_state_selection(data,sel_country):
-    countries = get_countries_list()
-    for country in countries.get("data", []):
-        if country.get("name").lower() == sel_country.lower():
-            country_code = country.get("code")
-            state_list = get_state_list(country_code)
+    # countries = get_countries_list()
+    # print(countries)
+    # for country in countries:
+    #     if country.get("name").lower() == sel_country.lower():
+    #         country_code = country.get("code")
+    state_list = get_state_list("IN")
     state = get_button_object("Please Select a State",state_list,"text")
     return state
 
-def send_city_selection(data):
-    countries = get_countries_list()
-    country = get_button_object("Please Select a Country",countries,"text")
+def send_city_selection(data,city):
+    City_list = [{"name":"Pune"},{"name":"Mumbai"}]
+    City = get_button_object("Please Select a City",City_list,"text")
+    return City
+    country = get_button_object("Please Select a City",city,"text")
     return country
 
 def get_user_session(data):
@@ -245,7 +271,11 @@ def handle_country_selection(data):
     send_message(data["from"],send_country_selection(data),type="button")
 
 def handle_state_selection(data,sel_county):
-    send_message(data["from"],send_state_selection(data,sel_county),type="button")
+    send_message(data["from"],send_state_selection(data,"IN"),type="button")
+
+def handle_city_selection(data,sel_county):
+    buttonarray = ["Pune","Mumbai","Nagpur"]
+    send_message(data["from"],send_city_selection(data,"IN"),type="button")
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -357,8 +387,10 @@ def generate_city_info(city_name, category):
 
 @app.route('/city-info', methods=['GET'])
 def city_info():
-    city = request.args.get('city')
-    category = request.args.get('category')
+    # city = request.args.get('city')
+    # category = request.args.get('category')
+    city = "Pune"
+    category = "History"
     if not city:
         return jsonify({'error': 'City name is required'}), 400
     
